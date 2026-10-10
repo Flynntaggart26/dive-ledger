@@ -7,6 +7,12 @@
     <meta name="description" content="DiveLedger — çevrimdışı dalış ekipmanı servis defteri. Offline dive gear service log." />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./styles.css" />
     <title>DiveLedger — Ekipman Servis Defteri</title>
   </head>
@@ -32,6 +38,11 @@
       <section id="view-dashboard" class="view is-active" aria-labelledby="dashboard-title">
         <h1 id="dashboard-title" data-i18n="dashboardTitle">Servis paneli</h1>
         <p class="lede" data-i18n="dashboardLede">Kullanıcının girdiği bakım tarihleri burada gruplanır. Uygulama üretici aralığı uydurmaz.</p>
+        <div class="hero-band" aria-hidden="true">
+          <span class="hero-kicker">DiveLedger · Logbook</span>
+          <p id="hero-line">Regülatörden tüpe — her ekipmanın bakım hikâyesi tek defterde.</p>
+          <div class="hero-marks"><span><b id="hero-overdue">0</b> <i id="hero-overdue-label">gecikmiş</i></span><span><b id="hero-soon">0</b> <i id="hero-soon-label">yaklaşan</i></span><span>−30 m · −18 m · −6 m</span></div>
+        </div>
         <div class="stat-grid" id="stat-grid"></div>
         <div class="panel-head">
           <h2 data-i18n="attentionTitle">İlgilenilmesi gerekenler</h2>
@@ -154,10 +165,12 @@
         <div id="detail-body"></div>
         <h3 data-i18n="svcHistory">Servis geçmişi</h3>
         <ul id="detail-services" class="timeline"></ul>
-        <h3>QR</h3>
+        <h3>QR · Etiket</h3>
         <p class="note" data-i18n="qrNote">QR yalnızca opak ekipman kimliği içerir. Aynı tarayıcı profilinde açılır.</p>
-        <img id="detail-qr" alt="QR kod" width="180" height="180" />
-        <p><code id="detail-qr-url" class="mono"></code></p>
+        <div class="qr-card">
+          <img id="detail-qr" alt="QR kod" width="180" height="180" />
+          <div><code id="detail-qr-url" class="mono"></code></div>
+        </div>
         <div class="dialog-actions">
           <button id="detail-add-service" class="primary-btn" data-i18n="addService">+ Servis ekle</button>
           <button id="detail-print" class="ghost-btn" data-i18n="print">Yazdır</button>
@@ -166,7 +179,7 @@
     </dialog>
 
     <footer class="foot">
-      <span>DiveLedger · offline-first · veriler cihazında</span>
+      <span>DiveLedger · offline-first · veriler yalnızca bu cihazda · log, not a certificate</span>
       <span id="sw-status" class="mono"></span>
     </footer>
 

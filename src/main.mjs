@@ -51,15 +51,25 @@ function renderStats() {
   const counts = { overdue: 0, soon: 0, current: 0, unset: 0 };
   for (const e of active) counts[statusOf(e)] = (counts[statusOf(e)] || 0) + 1;
   $('stat-grid').innerHTML = `
-    <div class="stat"><b>${active.length}</b><span>${S.total}</span></div>
-    <div class="stat overdue"><b>${counts.overdue}</b><span>${S.overdue}</span></div>
-    <div class="stat soon"><b>${counts.soon}</b><span>${S.soon}</span></div>
-    <div class="stat"><b>${counts.unset}</b><span>${S.unset}</span></div>`;
+    <div class="stat total"><b>${active.length}</b><span>${S.total}</span><small>${lang === 'tr' ? 'kayıtlı ekipman' : 'registered items'}</small></div>
+    <div class="stat overdue"><b>${counts.overdue}</b><span>${S.overdue}</span><small>${lang === 'tr' ? 'tarih geçti' : 'past due date'}</small></div>
+    <div class="stat soon"><b>${counts.soon}</b><span>${S.soon}</span><small>${lang === 'tr' ? '30 gün içinde' : 'within 30 days'}</small></div>
+    <div class="stat neutral"><b>${counts.unset}</b><span>${S.unset}</span><small>${lang === 'tr' ? 'tarih girilmedi' : 'no date entered'}</small></div>`;
+  $('hero-overdue').textContent = String(counts.overdue);
+  $('hero-soon').textContent = String(counts.soon);
+  $('hero-overdue-label').textContent = S.overdue;
+  $('hero-soon-label').textContent = S.soon;
+  $('hero-line').textContent = lang === 'tr'
+    ? 'Regülatörden tüpe — her ekipmanın bakım hikâyesi tek defterde.'
+    : 'From regulator to cylinder — every item’s service story in one logbook.';
   const attention = active
     .filter((e) => ['overdue', 'soon'].includes(statusOf(e)))
     .sort((a, b) => (a.nextServiceDate || '').localeCompare(b.nextServiceDate || ''));
   $('attention-list').innerHTML = attention.length
-    ? attention.map((e) => `<li><strong>${escapeHtml(e.name)}</strong> <span class="badge ${statusOf(e)}">${e.nextServiceDate} · ${S[statusOf(e)]}</span><br><span class="meta">${escapeHtml(e.brand || '')} ${escapeHtml(e.model || '')}</span></li>`).join('')
+    ? attention.map((e) => {
+      const st = statusOf(e);
+      return `<li class="${st === 'overdue' ? 'is-overdue' : ''}"><strong>${escapeHtml(e.name)}</strong> <span class="badge ${st}"><span class="dot"></span>${e.nextServiceDate} · ${S[st]}</span><br><span class="meta">${escapeHtml(e.brand || '')} ${escapeHtml(e.model || '')}</span></li>`;
+    }).join('')
     : `<li>${lang === 'tr' ? 'Yaklaşan servis yok. Tarihleri ekipman kartından gir.' : 'No upcoming service. Set dates on gear cards.'}</li>`;
 }
 
@@ -79,11 +89,12 @@ function renderEquipment() {
   $('equipment-empty').hidden = list.length > 0;
   $('equipment-grid').innerHTML = list.map((e) => {
     const st = statusOf(e);
-    return `<article class="card">
-      <div><span class="badge">${typeLabel(e.type)}</span> <span class="badge ${st}">${e.nextServiceDate || '—'} · ${S[st]}</span></div>
-      <strong>${escapeHtml(e.name)}</strong>
-      <span class="meta mono">${escapeHtml(e.serialNumber || '')}</span>
-      <span class="meta">${escapeHtml(e.brand || '')} ${escapeHtml(e.model || '')}</span>
+    const icon = e.type === 'regulator' ? '◉' : e.type === 'bcd' ? '▣' : e.type === 'cylinder' ? '▮' : e.type === 'computer' ? '◈' : '○';
+    return `<article class="card is-${st}">
+      <div class="card-top"><span class="type-chip">${icon} ${typeLabel(e.type)}</span> <span class="badge ${st}"><span class="dot"></span>${e.nextServiceDate || '—'} · ${S[st]}</span></div>
+      <strong class="card-name">${escapeHtml(e.name)}</strong>
+      ${e.serialNumber ? `<span class="serial">SN ${escapeHtml(e.serialNumber)}</span>` : ''}
+      <span class="meta">${escapeHtml([e.brand, e.model].filter(Boolean).join(' · ') || '—')}</span>
       <div class="row">
         <button data-open="${e.id}" class="ghost-btn">${lang === 'tr' ? 'Aç' : 'Open'}</button>
         <button data-edit="${e.id}" class="ghost-btn">${lang === 'tr' ? 'Düzenle' : 'Edit'}</button>
