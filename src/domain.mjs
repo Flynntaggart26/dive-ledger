@@ -73,6 +73,26 @@ export function validateServiceEntry(input = {}) {
   return { value, errors };
 }
 
+export function validateDive(input = {}) {
+  const value = {
+    ...input,
+    id: cleanText(input.id),
+    date: cleanText(input.date),
+    site: cleanText(input.site),
+    mix: cleanText(input.mix),
+    notes: cleanText(input.notes),
+    depthM: Number(input.depthM),
+    timeMin: Number(input.timeMin),
+  };
+  const errors = {};
+
+  if (!isDateKey(value.date)) errors.date = 'invalid';
+  if (!Number.isFinite(value.depthM) || value.depthM < 0 || value.depthM > 120) errors.depthM = 'invalid';
+  if (!Number.isFinite(value.timeMin) || value.timeMin < 0 || value.timeMin > 600) errors.timeMin = 'invalid';
+
+  return { value, errors };
+}
+
 const EQUIPMENT_CSV_FIELDS = [
   ['Type', 'type'], ['Name', 'name'], ['Brand', 'brand'], ['Model', 'model'],
   ['Serial number', 'serialNumber'], ['Purchase date', 'purchaseDate'], ['Next service date', 'nextServiceDate'], ['Notes', 'notes'],
@@ -110,6 +130,13 @@ export function parseBackup(jsonText) {
   }
   if (document.data.checklist.some((item) => !item?.id || typeof item.label !== 'string' || typeof item.done !== 'boolean')) {
     throw new Error('Backup contains invalid checklist items.');
+  }
+  if (document.data.dives === undefined) document.data.dives = [];
+  if (!Array.isArray(document.data.dives)) {
+    throw new Error('Backup data is incomplete.');
+  }
+  if (document.data.dives.some((dive) => !dive?.id || Object.keys(validateDive(dive).errors).length)) {
+    throw new Error('Backup contains invalid dives.');
   }
 
   return document;

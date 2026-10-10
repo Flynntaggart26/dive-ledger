@@ -1,5 +1,5 @@
 const DB_NAME = 'dive-ledger';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -12,6 +12,7 @@ function openDb() {
         s.createIndex('equipmentId', 'equipmentId', { unique: false });
       }
       if (!db.objectStoreNames.contains('checklist')) db.createObjectStore('checklist', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('dives')) db.createObjectStore('dives', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
     };
     req.onsuccess = () => resolve(req.result);
@@ -52,19 +53,24 @@ export const store = {
   listChecklist: () => tx('checklist', 'readonly', (s) => s.getAll()),
   putCheck: (item) => tx('checklist', 'readwrite', (s) => s.put(item)),
   clearChecklist: () => tx('checklist', 'readwrite', (s) => s.clear()),
+  listDives: () => tx('dives', 'readonly', (s) => s.getAll()),
+  putDive: (item) => tx('dives', 'readwrite', (s) => s.put(item)),
+  deleteDive: (id) => tx('dives', 'readwrite', (s) => s.delete(id)),
   getMeta: (key) => tx('meta', 'readonly', (s) => s.get(key)).then((r) => r?.value),
   setMeta: (key, value) => tx('meta', 'readwrite', (s) => s.put({ key, value })),
   replaceAll: (data) =>
     openDb().then(
       (db) =>
         new Promise((resolve, reject) => {
-          const t = db.transaction(['equipment', 'services', 'checklist'], 'readwrite');
+          const t = db.transaction(['equipment', 'services', 'checklist', 'dives'], 'readwrite');
           t.objectStore('equipment').clear();
           t.objectStore('services').clear();
           t.objectStore('checklist').clear();
+          t.objectStore('dives').clear();
           for (const e of data.equipment) t.objectStore('equipment').put(e);
           for (const e of data.serviceEntries) t.objectStore('services').put(e);
           for (const e of data.checklist) t.objectStore('checklist').put(e);
+          for (const e of data.dives || []) t.objectStore('dives').put(e);
           t.oncomplete = () => { db.close(); resolve(true); };
           t.onerror = () => { db.close(); reject(t.error); };
         }),

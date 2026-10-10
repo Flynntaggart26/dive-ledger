@@ -22,10 +22,16 @@ DiveLedger is an **offline-first, bilingual (TR/EN) PWA** for recreational diver
 | 🕰️ **Service history** | Per-item timeline (date, provider, work done, notes); a service record can roll the next-service date forward |
 | 🏷️ **QR labels** | Each label encodes **only the opaque gear ID** — no serial, no notes. Opens the item in the same browser profile; printable via the detail dialog |
 | ✅ **Pre-dive checklist** | Editable, checkable, resettable list stored locally |
+| 🧮 **Nitrox calculator** | MOD (rounded down), ppO₂ at depth, EAD (rounded up), richest safe mix, and EAD-based NDL — with over-ceiling refusal |
+| 📉 **No-deco limits** | US Navy Rev 7 Table 9-7 air lookup; metric depths round up to the next table step, with the table depth always shown |
+| ⏱️ **Safety-stop timer** | Timestamp-based 3:00/5:00/custom countdown with progress bar and audible finish alert |
+| 🫁 **SAC & gas plan** | Surface-equivalent consumption (L/min), litres needed, and rule-of-thirds shares |
+| 🔁 **Unit converter** | m↔ft, bar↔psi, °C↔°F |
+| 📓 **Dive logbook** | Date/site/depth/time/mix/notes per dive, stored locally and included in JSON backups |
 | 💾 **Backup** | One-click JSON export/import (validated before overwrite) + CSV gear export with stable columns |
 | 📴 **Offline PWA** | Installable, service-worker cached app shell; Turkish-first UI with full English translation |
 
-> **Honest scope:** DiveLedger is a log and reminder — not a certificate. It records the dates *you* enter and never invents manufacturer intervals, condition scores, or go/no-go advice. Always follow your gear manufacturer's service schedule and a certified technician's judgment.
+> **Honest scope:** DiveLedger is a log, reminder, and planning *helper* — not a certificate, computer, or instructor. It records the dates *you* enter and never invents manufacturer intervals, condition scores, or go/no-go advice. NDL lookups are single-dive, air-table values: always cross-check with your training tables and dive computer, and follow your gear manufacturer's service schedule and a certified technician's judgment.
 
 ---
 
@@ -67,15 +73,21 @@ Then serve `dist/` over HTTP (service workers require it) and open the URL. On t
 .
 ├── index.html / styles.css          # app shell + maritime-logbook theme
 ├── src/
-│   ├── main.mjs                     # views, dialogs, dashboard rendering
-│   ├── store.mjs                    # IndexedDB repository
+│   ├── main.mjs                     # views, dialogs, dashboard, tools wiring
+│   ├── store.mjs                    # IndexedDB repository (gear, services, checklist, dives)
 │   ├── domain.mjs                   # validation, UTC dates, CSV, backup parsing
+│   ├── divecalc.mjs                 # nitrox/MOD/EAD/NDL/SAC/converter math (pure, tested)
 │   ├── i18n.mjs                     # TR/EN strings + default checklist
 │   └── qr.mjs                       # opaque-ID deep links + QR data URLs
 ├── public/                          # manifest, icon, service worker
-├── tests/                           # node:test suites (domain, i18n, deep-links)
+├── tests/                           # node:test suites (domain, divecalc, i18n, deep-links)
 └── .github/workflows/pages.yml      # verify → build → deploy
 ```
+
+## 📚 Planning-data sources
+
+- MOD / EAD / ppO₂ formulas: US Navy Diving Manual, TDI / NOAA / PADI-manual-based references (MOD rounded down, EAD rounded up, 1.4 bar recreational ppO₂ ceiling).
+- No-decompression limits: [US Navy Diving Manual Rev 7, Table 9-7](https://www.navsea.navy.mil/Portals/103/Documents/SUPSALV/Diving/US%20DIVING%20MANUAL_REV7.pdf) (air). Metric inputs convert to fsw and use the next deeper listed depth.
 
 ---
 

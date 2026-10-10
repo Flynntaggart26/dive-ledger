@@ -1,4 +1,8 @@
-import { equipmentToCsv, getServiceStatus, parseBackup, validateEquipment, validateServiceEntry } from './domain.mjs';
+import { equipmentToCsv, getServiceStatus, parseBackup, validateDive, validateEquipment, validateServiceEntry } from './domain.mjs';
+import {
+  barToPsi, bestMix, cToF, eadM, formatCountdown, fToC, ftToM, gasNeeded,
+  modM, mToFt, ndlAirM, ndlNitroxM, ppo2, psiToBar, sacRate,
+} from './divecalc.mjs';
 import { newId, store } from './store.mjs';
 import { defaultChecklist, stringsFor } from './i18n.mjs';
 import { equipmentUrl, qrDataUrl } from './qr.mjs';
@@ -8,6 +12,7 @@ let S = stringsFor(lang);
 let equipment = [];
 let services = [];
 let checklist = [];
+let dives = [];
 
 const $ = (id) => document.getElementById(id);
 
@@ -39,7 +44,7 @@ function typeLabel(t) {
 }
 
 async function load() {
-  [equipment, services, checklist] = await Promise.all([store.listEquipment(), store.listServices(), store.listChecklist()]);
+  [equipment, services, checklist, dives] = await Promise.all([store.listEquipment(), store.listServices(), store.listChecklist(), store.listDives()]);
   if (!checklist.length) {
     checklist = defaultChecklist(lang).map((label, i) => ({ id: newId('check'), label, done: false, order: i }));
     for (const c of checklist) await store.putCheck(c);
@@ -114,6 +119,8 @@ function renderAll() {
   renderStats();
   renderEquipment();
   renderChecklist();
+  renderTools();
+  renderDives();
 }
 
 function switchView(name) {
@@ -279,7 +286,7 @@ function download(name, text, type) {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 $('export-json').addEventListener('click', async () => {
-  const doc = { format: 'dive-ledger-backup', version: 1, exportedAt: new Date().toISOString(), data: { equipment, serviceEntries: services, checklist } };
+  const doc = { format: 'dive-ledger-backup', version: 1, exportedAt: new Date().toISOString(), data: { equipment, serviceEntries: services, checklist, dives } };
   download(`dive-ledger-${todayKey()}.json`, JSON.stringify(doc, null, 2), 'application/json');
 });
 $('export-csv').addEventListener('click', () => {
@@ -301,9 +308,211 @@ $('import-json').addEventListener('change', async (ev) => {
 });
 
 async function refresh() {
-  [equipment, services, checklist] = await Promise.all([store.listEquipment(), store.listServices(), store.listChecklist()]);
+  [equipment, services, checklist, dives] = await Promise.all([store.listEquipment(), store.listServices(), store.listChecklist(), store.listDives()]);
   renderAll();
 }
+
+// ---------------- Dive tools ----------------
+
+const num = (id, fallback = 0) => {
+  const v = Number($(id).value);
+  return Number.isFinite(v) ? v : fallback;
+};
+
+function resultRow(label, value, warn = false) {
+  return `<div class="result-row${warn ? ' is-warn' : ''}"><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`;
+}
+
+function renderNitrox() {
+  const o2 = num('nx-o2', 32);
+  const depth = num('nx-depth', 0);
+  const ceil = num('nx-ceil', 1.4);
+  if (o2 < 21 || o2 > 100 || !Number.isFinite(depth) || depth < 0) {
+    $('nx-results').innerHTML = resultRow('—', escapeHtml(S.badMix), true);
+    return;
+  }
+  const fo2 = o2 / 100;
+  const p = ppo2(fo2, depth);
+  const over = p > ceil + 1e-9;
+  const ead = eadM(fo2, depth);
+  const ndl = ndlNitroxM(fo2, depth, ceil);
+  $('nx-results').innerHTML =
+    resultRow(`${S.modLabel} @${ceil} bar`, `<b>${modM(fo2, ceil)} m</b>`) +
+    resultRow(S.ppo2Label, `<b>${p.toFixed(2)} bar</b>`, over) +
+    (over ? resultRow('⚠', escapeHtml(S.ppO2Exceeded), true) : '') +
+    resultRow(S.eadLabel, `<b>${ead} m</b>`) +
+    resultRow(S.bestMixLabel, `<b>EAN${bestMix(ceil, depth)}</b>`) +
+    resultRow(S.nitroxNdlLabel, ndl.error
+      ? escapeHtml(ndl.error === 'ppO2-exceeded' ? S.ppO2Exceeded : S.beyondTable)
+      : (ndl.unlimited ? S.unlimitedLabel : `<b>${ndl.ndlMin} dk</b> (EAD ${ndl.eadM} m → ${ndl.tableDepthM} m)`));
+}
+
+function renderNdl() {
+  const depth = num('ndl-depth', 0);
+  const r = ndlAirM(depth);
+  $('ndl-results').innerHTML = r.error
+    ? resultRow('—', escapeHtml(r.error === 'beyond-table' ? S.beyondTable : S.outOfRange), true)
+    : resultRow(S.tableDepthLabel, `<b>${r.tableDepthM} m</b> (${r.tableDepthFsw} ft)`) +
+      resultRow(S.ndlResultLabel, r.unlimited ? S.unlimitedLabel : `<b>${r.ndlMin} dk</b>`);
+}
+
+function renderSac() {
+  const s = sacRate({ usedBar: num('sac-bar'), cylLitres: num('sac-cyl', 12), depthM: num('sac-depth'), minutes: num('sac-min', 1) });
+  const need = gasNeeded({ sac: s, depthM: num('sac-depth'), minutes: num('sac-min', 1) });
+  $('sac-results').innerHTML =
+    resultRow(`${S.sacResultLabel} (L/dk)`, `<b>${s}</b>`) +
+    resultRow(S.gasNeededLabel, `<b>${need} L</b>`) +
+    resultRow(S.thirdsLabel, `<b>${Math.ceil(need / 3)} L</b>`);
+}
+
+function renderConv() {
+  const v = num('conv-value');
+  const kind = $('conv-kind').value;
+  let out = '';
+  if (kind === 'depth') out = resultRow(`${v} m`, `<b>${mToFt(v)} ft</b>`) + resultRow(`${v} ft`, `<b>${ftToM(v)} m</b>`);
+  else if (kind === 'pressure') out = resultRow(`${v} bar`, `<b>${barToPsi(v)} psi</b>`) + resultRow(`${v} psi`, `<b>${psiToBar(v)} bar</b>`);
+  else out = resultRow(`${v} °C`, `<b>${cToF(v)} °F</b>`) + resultRow(`${v} °F`, `<b>${fToC(v)} °C</b>`);
+  $('conv-results').innerHTML = out;
+}
+
+function renderTools() {
+  renderNitrox();
+  renderNdl();
+  renderSac();
+  renderConv();
+  paintTimer();
+}
+
+for (const id of ['nx-o2', 'nx-depth', 'nx-ceil']) $(id).addEventListener('input', renderNitrox);
+$('ndl-depth').addEventListener('input', renderNdl);
+for (const id of ['sac-bar', 'sac-cyl', 'sac-depth', 'sac-min']) $(id).addEventListener('input', renderSac);
+for (const id of ['conv-value', 'conv-kind']) $(id).addEventListener('input', renderConv);
+
+// Safety-stop timer (timestamp-based so background throttling can't cheat it)
+let timerTotal = 180;
+let timerLeft = 180;
+let timerId = null;
+let timerEndAt = 0;
+
+function paintTimer() {
+  $('timer-display').textContent = formatCountdown(timerLeft);
+  $('timer-display').classList.toggle('is-done', timerLeft <= 0);
+  $('timer-bar-fill').style.width = `${timerTotal ? (100 * (timerTotal - timerLeft)) / timerTotal : 0}%`;
+  $('timer-toggle').innerHTML = timerId
+    ? `<span>${escapeHtml(S.timerPause)}</span>`
+    : `<span>▶ ${escapeHtml(S.timerStart)}</span>`;
+}
+
+function beep(times = 3) {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    let t = ctx.currentTime;
+    for (let i = 0; i < times; i += 1) {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = 880;
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start(t);
+      g.gain.setValueAtTime(0.25, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      o.stop(t + 0.3);
+      t += 0.4;
+    }
+  } catch { /* audio unavailable — visual alert still shows */ }
+}
+
+function stopTimer(finished = false) {
+  clearInterval(timerId);
+  timerId = null;
+  if (finished) {
+    timerLeft = 0;
+    $('timer-status').textContent = S.timerDone;
+    beep();
+  }
+  paintTimer();
+}
+
+$('timer-toggle').addEventListener('click', () => {
+  if (timerId) {
+    timerLeft = Math.max(0, Math.round((timerEndAt - Date.now()) / 1000));
+    stopTimer();
+    return;
+  }
+  if (timerLeft <= 0) timerLeft = timerTotal;
+  $('timer-status').textContent = '';
+  timerEndAt = Date.now() + timerLeft * 1000;
+  timerId = setInterval(() => {
+    timerLeft = Math.max(0, Math.round((timerEndAt - Date.now()) / 1000));
+    paintTimer();
+    if (timerLeft <= 0) stopTimer(true);
+  }, 200);
+  paintTimer();
+});
+$('timer-reset').addEventListener('click', () => {
+  stopTimer();
+  timerLeft = timerTotal;
+  $('timer-status').textContent = '';
+  paintTimer();
+});
+document.querySelectorAll('[data-timer-preset]').forEach((b) => b.addEventListener('click', () => {
+  stopTimer();
+  timerTotal = Number(b.dataset.timerPreset);
+  timerLeft = timerTotal;
+  $('timer-custom').value = String(timerTotal);
+  $('timer-status').textContent = '';
+  paintTimer();
+}));
+$('timer-custom').addEventListener('input', () => {
+  stopTimer();
+  timerTotal = Math.min(3600, Math.max(5, Math.round(Number($('timer-custom').value) || 180)));
+  timerLeft = timerTotal;
+  $('timer-status').textContent = '';
+  paintTimer();
+});
+
+// Dive logbook
+function renderDives() {
+  const list = [...dives].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  $('dive-empty').hidden = list.length > 0;
+  $('dive-list').innerHTML = list.map((d) => `
+    <li><strong>${escapeHtml(d.date)}</strong> — ${escapeHtml(d.site || '—')} · ${d.depthM} m · ${d.timeMin} ${S.minShort} · ${escapeHtml(d.mix || (lang === 'tr' ? 'Hava' : 'Air'))}
+    ${d.notes ? `<br><span class="meta">${escapeHtml(d.notes)}</span>` : ''}
+    <br><button class="ghost-btn" data-dive-del="${d.id}">${escapeHtml(S.diveDelete)}</button></li>`).join('');
+}
+
+$('add-dive').addEventListener('click', () => {
+  $('dive-form').reset();
+  $('dive-id').value = '';
+  $('dive-errors').textContent = '';
+  $('dive-dialog').showModal();
+});
+$('dive-save').addEventListener('click', async (ev) => {
+  ev.preventDefault();
+  const input = {
+    id: $('dive-id').value || newId('dive'),
+    date: $('dive-date').value, site: $('dive-site').value,
+    depthM: Number($('dive-depth').value), timeMin: Number($('dive-time').value),
+    mix: $('dive-mix').value, notes: $('dive-notes').value,
+  };
+  const { value, errors } = validateDive(input);
+  if (Object.keys(errors).length) {
+    $('dive-errors').textContent = Object.entries(errors).map(([k, v]) => `${k}: ${v}`).join(' · ');
+    return;
+  }
+  await store.putDive({ ...value, createdAt: new Date().toISOString() });
+  $('dive-dialog').close();
+  await refresh();
+});
+$('dive-list').addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('[data-dive-del]');
+  if (!btn) return;
+  if (!confirm(lang === 'tr' ? 'Bu dalış kaydı silinsin mi?' : 'Delete this dive?')) return;
+  await store.deleteDive(btn.dataset.diveDel);
+  await refresh();
+});
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').then(

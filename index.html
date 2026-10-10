@@ -29,6 +29,7 @@
         <button data-view="dashboard" class="tab is-active" data-i18n="navDashboard">Panel</button>
         <button data-view="equipment" class="tab" data-i18n="navEquipment">Ekipman</button>
         <button data-view="checklist" class="tab" data-i18n="navChecklist">Kontrol</button>
+        <button data-view="tools" class="tab" data-i18n="navTools">Araçlar</button>
         <button data-view="backup" class="tab" data-i18n="navBackup">Yedek</button>
       </nav>
       <button id="lang-toggle" class="lang-toggle" aria-label="Switch to English">TR / EN</button>
@@ -87,6 +88,90 @@
           </div>
         </div>
         <ul id="checklist" class="checklist"></ul>
+      </section>
+
+      <section id="view-tools" class="view" aria-labelledby="tools-title">
+        <h1 id="tools-title" data-i18n="toolsTitle">Dalış araçları</h1>
+        <p class="lede" data-i18n="toolsLede">Planlamaya yardımcı hesaplar. Eğitimini ve dalış bilgisayarını esas al.</p>
+        <p class="safety-banner" data-i18n="safetyNote">Bu araçlar eğitim amaçlıdır; dalış bilgisayarının ve eğitiminin yerini tutmaz.</p>
+        <div class="tool-grid">
+          <article class="tool-card">
+            <h2 data-i18n="nitroxTitle">Nitrox hesaplayıcı</h2>
+            <p class="note" data-i18n="nitroxLede">O₂ %, derinlik ve ppO₂ tavanına göre MOD, ppO₂, EAD ve en zengin güvenli karışım.</p>
+            <div class="tool-inputs">
+              <label><span data-i18n="fO2">Oksijen %</span><input id="nx-o2" type="number" min="21" max="100" step="1" value="32" /></label>
+              <label><span data-i18n="fDepthM">Derinlik (m)</span><input id="nx-depth" type="number" min="0" max="60" step="1" value="30" /></label>
+              <label><span data-i18n="fCeiling">ppO₂ tavanı (bar)</span>
+                <select id="nx-ceil"><option value="1.2">1.2</option><option value="1.4" selected>1.4</option><option value="1.6">1.6</option></select>
+              </label>
+            </div>
+            <dl class="result-list" id="nx-results"></dl>
+          </article>
+
+          <article class="tool-card">
+            <h2 data-i18n="ndlTitle">No-deko limit (hava)</h2>
+            <p class="note" data-i18n="ndlLede">Metrik derinliği bir üst US Navy basamağına yuvarlar.</p>
+            <div class="tool-inputs">
+              <label><span data-i18n="fDepthM">Derinlik (m)</span><input id="ndl-depth" type="number" min="0" max="60" step="1" value="18" /></label>
+            </div>
+            <dl class="result-list" id="ndl-results"></dl>
+            <p class="note" data-i18n="ndlSource">Kaynak: US Navy Diving Manual Rev 7, Tablo 9-7 (hava).</p>
+          </article>
+
+          <article class="tool-card timer-card">
+            <h2 data-i18n="timerTitle">Safety stop zamanlayıcı</h2>
+            <p class="note" data-i18n="timerLede">5 metrede 3 dakika için geri sayım. Bitince sesli uyarı.</p>
+            <div class="timer-display" id="timer-display">03:00</div>
+            <div class="timer-bar"><i id="timer-bar-fill"></i></div>
+            <div class="row">
+              <button class="ghost-btn" data-timer-preset="180" data-i18n="timerPreset3">3:00</button>
+              <button class="ghost-btn" data-timer-preset="300" data-i18n="timerPreset5">5:00</button>
+              <label class="timer-custom"><span data-i18n="timerCustomLabel">Özel (sn)</span><input id="timer-custom" type="number" min="5" max="3600" step="5" value="180" /></label>
+            </div>
+            <div class="row">
+              <button id="timer-toggle" class="primary-btn" data-i18n="timerStart">Başlat</button>
+              <button id="timer-reset" class="ghost-btn" data-i18n="timerReset">Sıfırla</button>
+            </div>
+            <p id="timer-status" class="status" role="status" aria-live="polite"></p>
+          </article>
+
+          <article class="tool-card">
+            <h2 data-i18n="sacTitle">SAC ve gaz planı</h2>
+            <p class="note" data-i18n="sacLede">Yüzey eşdeğeri tüketim (L/dk) ve planlanan dalışın litre ihtiyacı.</p>
+            <div class="tool-inputs">
+              <label><span data-i18n="fUsedBar">Harcanan (bar)</span><input id="sac-bar" type="number" min="0" value="100" /></label>
+              <label><span data-i18n="fCylL">Tüp hacmi (L)</span><input id="sac-cyl" type="number" min="1" value="12" /></label>
+              <label><span data-i18n="fDepthM">Derinlik (m)</span><input id="sac-depth" type="number" min="0" max="60" value="20" /></label>
+              <label><span data-i18n="fMin">Süre (dk)</span><input id="sac-min" type="number" min="1" value="30" /></label>
+            </div>
+            <dl class="result-list" id="sac-results"></dl>
+          </article>
+
+          <article class="tool-card">
+            <h2 data-i18n="convTitle">Birim çevirici</h2>
+            <div class="tool-inputs">
+              <label><span data-i18n="convValue">Değer</span><input id="conv-value" type="number" value="18" /></label>
+              <label><span>→</span>
+                <select id="conv-kind">
+                  <option value="depth">m ↔ ft</option>
+                  <option value="pressure">bar ↔ psi</option>
+                  <option value="temp">°C ↔ °F</option>
+                </select>
+              </label>
+            </div>
+            <dl class="result-list" id="conv-results"></dl>
+          </article>
+
+          <article class="tool-card log-card">
+            <div class="section-head" style="margin-top:0">
+              <div><h2 data-i18n="logTitle">Dalış kayıt defteri</h2></div>
+              <button id="add-dive" class="primary-btn" data-i18n="addDive">+ Dalış ekle</button>
+            </div>
+            <p class="note" data-i18n="logLede">Dalışların tarih, derinlik, süre ve karışımla burada dursun.</p>
+            <ul id="dive-list" class="timeline"></ul>
+            <p id="dive-empty" class="empty" hidden data-i18n="diveEmpty">Henüz dalış kaydı yok.</p>
+          </article>
+        </div>
       </section>
 
       <section id="view-backup" class="view" aria-labelledby="backup-title">
@@ -152,6 +237,30 @@
         <div class="dialog-actions">
           <button value="cancel" class="ghost-btn" formnovalidate data-i18n="cancel">Vazgeç</button>
           <button id="svc-save" value="default" class="primary-btn" data-i18n="save">Kaydet</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="dive-dialog" aria-labelledby="dive-dialog-title">
+      <form method="dialog" class="dialog-form" id="dive-form">
+        <h2 id="dive-dialog-title" data-i18n="logTitle">Dalış kayıt defteri</h2>
+        <input type="hidden" id="dive-id" />
+        <div class="two-col">
+          <label><span data-i18n="fDiveDate">Tarih *</span><input id="dive-date" type="date" required /></label>
+          <label><span data-i18n="fDiveSite">Bölge</span><input id="dive-site" maxlength="80" /></label>
+        </div>
+        <div class="two-col">
+          <label><span data-i18n="fDiveDepth">Derinlik (m) *</span><input id="dive-depth" type="number" min="0" max="120" step="0.5" required /></label>
+          <label><span data-i18n="fDiveTime">Süre (dk) *</span><input id="dive-time" type="number" min="0" max="600" step="1" required /></label>
+        </div>
+        <div class="two-col">
+          <label><span data-i18n="fDiveMix">Karışım</span><input id="dive-mix" maxlength="12" placeholder="Hava / EAN32" /></label>
+          <label><span data-i18n="fNotes">Notlar</span><input id="dive-notes" maxlength="200" /></label>
+        </div>
+        <p id="dive-errors" class="form-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button value="cancel" class="ghost-btn" formnovalidate data-i18n="cancel">Vazgeç</button>
+          <button id="dive-save" value="default" class="primary-btn" data-i18n="save">Kaydet</button>
         </div>
       </form>
     </dialog>

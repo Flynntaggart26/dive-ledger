@@ -4,6 +4,7 @@ import {
   equipmentToCsv,
   getServiceStatus,
   parseBackup,
+  validateDive,
   validateEquipment,
   validateServiceEntry,
 } from '../src/domain.mjs';
@@ -61,6 +62,16 @@ test('equipment CSV quotes commas and embedded double quotes', () => {
   assert.equal(csv, 'Type,Name,Brand,Model,Serial number,Purchase date,Next service date,Notes\n"regulator","First, stage","Aqua","A1","ZX-""9""","2024-05-11","2026-11-08",""');
 });
 
+test('dive log validation requires a real date and sane depth/time', () => {
+  const bad = validateDive({ id: 'd1', date: '2026-02-30', depthM: -5, timeMin: 'x' });
+  const good = validateDive({ id: 'd1', date: '2026-06-04', site: 'Kaş', depthM: 22, timeMin: 45, mix: 'EAN32' });
+
+  assert.equal(bad.errors.date, 'invalid');
+  assert.equal(bad.errors.depthM, 'invalid');
+  assert.equal(bad.errors.timeMin, 'invalid');
+  assert.deepEqual(good.errors, {});
+});
+
 test('backup parser accepts the supported format and rejects malformed or unknown versions', () => {
   const document = {
     format: 'dive-ledger-backup',
@@ -69,7 +80,7 @@ test('backup parser accepts the supported format and rejects malformed or unknow
     data: { equipment: [validEquipment], serviceEntries: [], checklist: [] },
   };
 
-  assert.deepEqual(parseBackup(JSON.stringify(document)), document);
+  assert.deepEqual(parseBackup(JSON.stringify(document)), { ...document, data: { ...document.data, dives: [] } });
   assert.throws(() => parseBackup('{bad json'), /JSON/);
   assert.throws(() => parseBackup(JSON.stringify({ ...document, version: 99 })), /format or version/);
 });
